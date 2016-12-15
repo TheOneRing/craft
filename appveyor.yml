@@ -1,0 +1,61 @@
+version: '{build}'
+install:
+- ps: |
+    Write-Host "Building", $env:PACKAGES
+    $ErrorActionPreference="Continue"
+    [string[]]$config = @(  "General/KDECompiler=msvc2015",
+                            "General/Architecture=x64",
+                            "Paths/Python=C:/python35",
+                            "Paths/Python2=C:/python27",
+                            "Paths/DownloadDir=$env:APPVEYOR_BUILD_FOLDER/downloads",
+                            "ContinuousIntegration/RepositoryUrl=http://downloads.kdab.com/kde-emerge/",
+                            "ContinuousIntegration/Enabled=True",
+                            "PortageVersions/Qt5=5.7.1",
+                            "Compile/BuildType=Release",
+                            "ShortPath/EMERGE_USE_SHORT_PATH=False",
+                            "Portage/Ignores=binary/mysql-pkg;kapidox;python/.*;frameworks/tier3/kio")
+    &"C:\python35\python.exe" "$env:APPVEYOR_BUILD_FOLDER/setup/CraftBootstrap.py" --root "$env:APPVEYOR_BUILD_FOLDER/.." --no-bootstrap --set $config
+
+    function craft() {
+        #kdeenv.ps1 calls cls which won't work on appweyor so run things in a new powershell
+        powershell "$env:APPVEYOR_BUILD_FOLDER\kdeenv.ps1" "craft" $args
+    }
+    craft -uc --install-deps $env:PACKAGES
+
+build_script:
+- ps: |
+    function craft() {
+        #kdeenv.ps1 calls cls which won't work on appweyor so run things in a new powershell
+        powershell "$env:APPVEYOR_BUILD_FOLDER\kdeenv.ps1" "craft" $args
+    }
+    #$ErrorActionPreference="Stop"
+    craft --continue $env:PACKAGES
+    Get-ChildItem $HOME/.craft/* | % { Push-AppveyorArtifact $_.FullName -FileName $_.Name }
+
+
+
+test_script:
+- ps: |
+    function craft() {
+        #kdeenv.ps1 calls cls which won't work on appweyor so run things in a new powershell
+        powershell "$env:APPVEYOR_BUILD_FOLDER\kdeenv.ps1" "craft" $args
+    }
+    craft --continue --test $env:PACKAGES
+
+environment:
+    QT_VER: 5.7
+    PACKAGES: "attica karchive kcodecs kconfig kcoreaddons kdbusaddons kguiaddons ki18n kidletime kimageformats kitemmodels kitemviews kplotting kwidgetsaddons kwindowsystem solid sonnet threadweaver"
+
+
+    matrix:
+    #msvc
+    - COMPILER: msvc2015_64
+    #- COMPILER: msvc2015
+
+    #mingw
+    #- COMPILER: mingw53_32
+
+
+cache:
+    - downloads -> appveyor.yml
+    - etc\kdesettings.ini -> appveyor.yml
