@@ -7,13 +7,23 @@ import os
 from CraftCore import CraftCore
 import utils
 
+from CraftBase import CraftBase
+from options import UserOptions
+
+
 class CraftManifestEntryFile(object):
-    def __init__(self, fileName : str, checksum : str, version : str="") -> None:
+    def __init__(self, fileName : str, checksum : str, version : str="", package : CraftBase=None) -> None:
         self.fileName = fileName
         self.checksum = checksum
         self.date = datetime.datetime.utcnow()
         self.version = version
         self.buildPrefix = CraftCore.standardDirs.craftRoot()
+        self.options = {}
+
+        if package:
+            self.version = package.version
+            settings = UserOptions.instance().settings
+            self.options = dict(settings[package.package.path]) if settings.has_section(package.package.path) else {}
 
     @staticmethod
     def fromJson(data : dict):
@@ -21,6 +31,7 @@ class CraftManifestEntryFile(object):
         out.date = CraftManifest._parseTimeStamp(data["date"])
         out.version = data.get("version", "")
         out.buildPrefix = data.get("buildPrefix", None)
+        out.options = data.get("options", {})
         return out
 
     def toJson(self) -> dict:
@@ -28,7 +39,8 @@ class CraftManifestEntryFile(object):
                 "checksum"      : self.checksum,
                 "date"          : self.date.strftime(CraftManifest._TIME_FORMAT),
                 "version"       : self.version,
-                "buildPrefix"   : self.buildPrefix}
+                "buildPrefix"   : self.buildPrefix,
+                "options"       : self.options}
 
 class CraftManifestEntry(object):
     def __init__(self, name : str) -> None:
@@ -44,8 +56,8 @@ class CraftManifestEntry(object):
     def toJson(self) -> dict:
         return {"name":self.name, "files":[x.toJson() for x in self.files]}
 
-    def addFile(self, fileName : str, checksum : str, version : str="") -> CraftManifestEntryFile:
-        f = CraftManifestEntryFile(fileName, checksum, version)
+    def addFile(self, fileName : str, checksum : str, version : str="", package : CraftBase=None) -> CraftManifestEntryFile:
+        f = CraftManifestEntryFile(fileName, checksum, version, package)
         self.files.insert(0, f)
         return f
 
